@@ -54,8 +54,29 @@ pub fn links_panel(app: &mut DesignApp, ui: &mut egui::Ui) {
     }
     let sel_key = egui::Id::unique("links_panel_sel");
     let item_sel_key = egui::Id::unique("links_panel_item_sel");
+    let canvas_sel_key = egui::Id::unique("links_panel_canvas_sel");
     let mut chosen: Option<u64> = ui.data(|d| d.get_temp(sel_key));
     let mut chosen_item: Option<u64> = ui.data(|d| d.get_temp(item_sel_key));
+
+    // Follow a placed graphic only when the canvas selection actually changes. This keeps a
+    // deliberate Links-panel click stable while the canvas selection remains unchanged.
+    let canvas_selection = app.session.active().and_then(|st| {
+        let [id] = st.selection.items.as_slice() else { return None };
+        st.doc.item(*id).and_then(designcraft_doc::Item::graphic).map(|g| (g.asset.0, id.0))
+    });
+    let previous_canvas_selection: Option<(u64, u64)> = ui.data(|d| d.get_temp(canvas_sel_key));
+    if canvas_selection != previous_canvas_selection {
+        if let Some((asset, item)) = canvas_selection {
+            chosen = Some(asset);
+            chosen_item = Some(item);
+        }
+        match canvas_selection {
+            Some(selection) => ui.data_mut(|d| d.insert_temp(canvas_sel_key, selection)),
+            None => {
+                ui.data_mut(|d| d.remove::<(u64, u64)>(canvas_sel_key));
+            }
+        }
+    }
 
     // If a placement was relinked, it moved under another asset row. Follow its use id so the
     // Links panel keeps the same placement selected after the document revision changes.

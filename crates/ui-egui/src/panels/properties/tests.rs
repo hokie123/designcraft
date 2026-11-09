@@ -200,6 +200,35 @@ fn links_panel_exposes_individual_placements_of_one_shared_asset() {
 }
 
 #[test]
+fn links_panel_follows_canvas_graphic_selection_without_overriding_manual_link_selection() {
+    let first = "/project/assets/a/photo.svg";
+    let second = "/project/assets/b/photo.svg";
+    let (mut app, items, _) = linked_graphics(&[Some(first), Some(second)]);
+    app.run("selection.set", json!({"ids": [items[0].0]})).unwrap();
+    let mut h = links_harness(app, 360.0);
+
+    // Opening the panel with A selected follows A.
+    h.get_by_label("Go To").click();
+    h.run_steps(3);
+    assert_eq!(h.state().session.active().unwrap().selection.items, vec![items[0]]);
+
+    // A direct canvas selection change to B makes the panel follow B.
+    h.state_mut().run("selection.set", json!({"ids": [items[1].0]})).unwrap();
+    h.run_steps(3);
+    h.get_by_label("Go To").click();
+    h.run_steps(3);
+    assert_eq!(h.state().session.active().unwrap().selection.items, vec![items[1]]);
+
+    // Clicking A in Links while canvas selection remains B must be allowed; the stable canvas
+    // selection must not overwrite the manual panel choice on the next frame.
+    h.get_by_label(first).click();
+    h.run_steps(3);
+    h.get_by_label("Go To").click();
+    h.run_steps(3);
+    assert_eq!(h.state().session.active().unwrap().selection.items, vec![items[0]]);
+}
+
+#[test]
 fn links_panel_keeps_long_source_paths_inside_a_narrow_panel() {
     let path = "/project/assets/studio-a/very-long-folder-name/another-long-folder-name/photo.svg";
     let (app, _, _) = linked_graphics(&[Some(path)]);
